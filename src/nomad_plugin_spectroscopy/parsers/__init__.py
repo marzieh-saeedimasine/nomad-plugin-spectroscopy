@@ -17,3 +17,7 @@
 #
 
 """Parsers for spectroscopy plugin."""
+
+from nomad_plugin_spectroscopy.parsers.__main__ import manifest_parser, spectrum_parser
+
+__all__ = ["manifest_parser", "spectrum_parser"]

@@ -69,6 +69,13 @@ extra-index-url = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[project.entry-points."nomad.parsers"]
+spectroscopy_manifest = "nomad_plugin_spectroscopy.parsers:manifest_parser"
+spectroscopy_spectrum = "nomad_plugin_spectroscopy.parsers:spectrum_parser"
+
+[project.entry-points."nomad.schema_packages"]
+spectroscopy_schema = "nomad_plugin_spectroscopy.schema_packages:schema_package_entry_point"
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
