@@ -220,28 +220,28 @@ class SpectrumData(PlotSection, ArchiveSection):
             logger (BoundLogger): A structlog logger.
         """
         super().normalize(archive, logger)
-        
+
         # Set num_points based on actual arrays
         if self.wavenumbers is not None and len(self.wavenumbers) > 0:
             self.num_points = len(self.wavenumbers)
-            
+
             # Extract wavenumber and absorbance values
             wavenumbers = []
             absorbances = []
-            
+
             for wn in self.wavenumbers:
                 if wn is not None:
                     if hasattr(wn, 'magnitude'):
                         wn = wn.magnitude
                     wavenumbers.append(float(wn))
-            
+
             if self.absorbances is not None:
                 for ab in self.absorbances:
                     if ab is not None:
                         if hasattr(ab, 'magnitude'):
                             ab = ab.magnitude
                         absorbances.append(float(ab))
-            
+
             if wavenumbers and absorbances:
                 # Create Plotly figure
                 fig = go.Figure()
@@ -254,7 +254,7 @@ class SpectrumData(PlotSection, ArchiveSection):
                         line=dict(color='#2A4CDF', width=2),
                     ),
                 )
-                
+
                 fig.update_layout(
                     title={'text': 'Spectrum', 'x': 0.5, 'xanchor': 'center'},
                     xaxis_title='Wavenumber (cm⁻¹)',
@@ -277,7 +277,7 @@ class SpectrumData(PlotSection, ArchiveSection):
                     width=600,
                     height=400,
                 )
-                
+
                 self.figures = [PlotlyFigure(label='Spectrum', figure=fig.to_plotly_json())]
 
 
@@ -423,7 +423,7 @@ class ExperimentStep(ArchiveSection):
 class ExperimentRun(Process, EntryData, ArchiveSection):
     """
     Complete spectroscopy experiment run containing metadata and multiple steps.
-    
+
     The main entry class that represents one complete spectroscopy experiment with:
     - Experiment metadata (run_id, chemicals, mixtures count)
     - Multiple experiment steps with associated IR spectra

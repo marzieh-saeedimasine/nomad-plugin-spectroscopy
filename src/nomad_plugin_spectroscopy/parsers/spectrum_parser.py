@@ -30,7 +30,7 @@ from nomad_plugin_spectroscopy.schema_packages.spectroscopy import (
 class SpectrumParser(MatchingParser):
     """
     Parser for spectroscopy files.
-    
+
     Handles both:
     - Simple spectrum CSV files (wavenumber + absorbance)
     - Manifest-based experiments (manifest + metadata + spectrum files)
@@ -44,7 +44,7 @@ class SpectrumParser(MatchingParser):
     ) -> None:
         """
         Parse spectroscopy file(s) and populate the archive.
-        
+
         Args:
             mainfile: Path to the CSV file
             archive: The entry archive to populate
@@ -52,20 +52,23 @@ class SpectrumParser(MatchingParser):
         """
         try:
             mainfile_path = Path(mainfile)
-            
+
+            if logger:
+                logger.info(f"Starting parse of {mainfile_path.name}")
+
             # Check if this is a manifest file
             if '_manifest.csv' in mainfile:
                 self._parse_manifest(mainfile_path, archive, logger)
             else:
                 # Fall back to simple spectrum parsing
                 self._parse_spectrum_simple(mainfile_path, archive, logger)
-                
+
         except Exception as e:
             if logger:
                 logger.error(f"Error parsing spectroscopy file: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
-            # Still create an empty ExperimentRun
+            # Always ensure archive.data is set to a valid EntryData
             archive.data = ExperimentRun()
 
     def _parse_manifest(self, mainfile_path: Path, archive, logger) -> None:
@@ -73,20 +76,20 @@ class SpectrumParser(MatchingParser):
         Parse a manifest-based experiment with metadata and multiple steps.
         """
         parent_dir = mainfile_path.parent
-        
+
         # Extract base name (e.g., "exp_20251205T151400Z" from "exp_20251205T151400Z_manifest.csv")
         manifest_name = mainfile_path.stem.rsplit('_', 1)[0]
         metadata_file = parent_dir / f'{manifest_name}_metadata.csv'
-        
+
         # Create ExperimentRun
         exp_run = ExperimentRun()
         exp_run.name = manifest_name
-        
+
         if logger:
             logger.info(f'Parsing manifest: {mainfile_path.name}')
             logger.info(f'Parent directory: {parent_dir}')
             logger.info(f'Manifest name: {manifest_name}')
-        
+
         # Parse metadata file
         metadata = self._parse_metadata(metadata_file, logger)
         if metadata:
@@ -94,15 +97,15 @@ class SpectrumParser(MatchingParser):
         else:
             if logger:
                 logger.warning(f'No metadata found for {manifest_name}')
-        
+
         # Parse manifest file and create steps
         manifest_df = pd.read_csv(mainfile_path)
         if logger:
             logger.info(f'Manifest has {len(manifest_df)} rows')
             logger.info(f'Manifest columns: {list(manifest_df.columns)}')
-        
+
         steps = []
-        
+
         for idx, (_, row) in enumerate(manifest_df.iterrows()):
             if logger:
                 logger.info(f'Parsing step {idx}')
@@ -114,10 +117,10 @@ class SpectrumParser(MatchingParser):
             else:
                 if logger:
                     logger.warning(f'Failed to parse step {idx}')
-        
+
         exp_run.steps = steps
         archive.data = exp_run
-        
+
         if logger:
             logger.info(f'Successfully parsed experiment {manifest_name} with {len(steps)} steps')
 
@@ -129,15 +132,15 @@ class SpectrumParser(MatchingParser):
             if logger:
                 logger.warning(f'Metadata file not found: {metadata_file}')
             return None
-        
+
         try:
             df = pd.read_csv(metadata_file)
             metadata = ExperimentMetadata()
-            
+
             for _, row in df.iterrows():
                 field = str(row.get('field', '')).strip()
                 value = str(row.get('value', '')).strip()
-                
+
                 if field == 'run_id':
                     metadata.run_id = value
                 elif field == 'n_chemicals':
@@ -152,7 +155,7 @@ class SpectrumParser(MatchingParser):
                     chem.index = index
                     chem.name = value
                     metadata.chemicals.append(chem)
-            
+
             return metadata
         except Exception as e:
             if logger:
@@ -165,7 +168,7 @@ class SpectrumParser(MatchingParser):
         """
         try:
             step = ExperimentStep()
-            
+
             # Parse basic step information
             if 'step' in row.index:
                 step.step = int(row['step'])
@@ -177,7 +180,7 @@ class SpectrumParser(MatchingParser):
                 val = row['repeat_of']
                 if pd.notna(val) and str(val).strip():
                     step.repeat_of = int(val)
-            
+
             # Parse volume fields
             volume_fields = {
                 'V_ECDEC_stock_ul': 'volume_ecdec_stock_ul',
@@ -191,7 +194,7 @@ class SpectrumParser(MatchingParser):
                     except (ValueError, TypeError):
                         if logger:
                             logger.warning(f'Could not parse {csv_col}: {row[csv_col]}')
-            
+
             # Parse weight fields
             weight_fields = {
                 'wt_LiPF6_pure': 'weight_lipf6_pure',
@@ -206,7 +209,7 @@ class SpectrumParser(MatchingParser):
                     except (ValueError, TypeError):
                         if logger:
                             logger.warning(f'Could not parse {csv_col}: {row[csv_col]}')
-            
+
             # Parse and attach spectrum data
             if 'scan_filename' in row.index:
                 scan_filename = str(row['scan_filename']).strip()
@@ -225,9 +228,9 @@ class SpectrumParser(MatchingParser):
             else:
                 if logger:
                     logger.warning('No scan_filename column found in manifest row')
-            
+
             return step
-            
+
         except Exception as e:
             if logger:
                 logger.warning(f'Error parsing step: {e}')
@@ -243,19 +246,19 @@ class SpectrumParser(MatchingParser):
                 logger.warning(f'Searched in: {spectrum_file.parent}')
                 logger.warning(f'Available files: {list(spectrum_file.parent.glob("*"))}'[:200])
             return None
-        
+
         try:
             df = pd.read_csv(spectrum_file)
             spectrum = SpectrumData()
             spectrum.name = spectrum_file.stem
-            
+
             if logger:
                 logger.info(f'Successfully loaded spectrum file: {spectrum_file.name}')
                 logger.info(f'Columns: {list(df.columns)}')
-            
+
             wavenumbers = []
             absorbances = []
-            
+
             for _, row in df.iterrows():
                 # Parse wavenumber
                 wn_value = None
@@ -266,7 +269,7 @@ class SpectrumParser(MatchingParser):
                             break
                         except (ValueError, TypeError):
                             pass
-                
+
                 # Parse absorbance
                 ab_value = None
                 for ab_col in ['absorbance', 'Absorbance', 'absorbance_au', 'absorbance [a.u.]', 'intensity']:
@@ -276,19 +279,19 @@ class SpectrumParser(MatchingParser):
                             break
                         except (ValueError, TypeError):
                             pass
-                
+
                 if wn_value is not None and ab_value is not None:
                     wavenumbers.append(wn_value)
                     absorbances.append(ab_value)
-            
+
             # Convert to numpy arrays
             if wavenumbers and absorbances:
                 spectrum.wavenumbers = np.array(wavenumbers)
                 spectrum.absorbances = np.array(absorbances)
                 spectrum.num_points = len(wavenumbers)
-            
+
             return spectrum
-            
+
         except Exception as e:
             if logger:
                 logger.warning(f'Error parsing spectrum file {spectrum_file}: {e}')
@@ -297,54 +300,74 @@ class SpectrumParser(MatchingParser):
     def _parse_spectrum_simple(self, mainfile_path: Path, archive, logger) -> None:
         """
         Parse a simple spectrum CSV file (fallback for non-manifest files).
+        Creates an ExperimentRun with spectrum data as a single step.
         """
-        df = pd.read_csv(mainfile_path)
-        
-        # Create simple spectrum data
-        spectrum = SpectrumData()
-        spectrum.name = mainfile_path.stem
-        
-        if logger:
-            logger.info(f"Reading CSV with columns: {list(df.columns)}")
-        
-        # Parse wavenumbers and absorbances as arrays
-        wavenumbers = []
-        absorbances = []
-        
-        for _, row in df.iterrows():
-            # Try different column name variants for wavenumber
-            wn_value = None
-            for wavenumber_col in ['wavenumber_cm1', 'wavenumber_cm-1', 'wavenumber [cm-1]', 'wavenumber', 'Wavenumber']:
-                if wavenumber_col in df.columns:
-                    try:
-                        wn_value = float(row[wavenumber_col])
-                        break
-                    except (ValueError, TypeError) as e:
-                        if logger:
-                            logger.warning(f"Could not parse wavenumber from {wavenumber_col}: {row[wavenumber_col]}, error: {e}")
-            
-            # Try different column name variants for absorbance
-            ab_value = None
-            for absorbance_col in ['absorbance', 'Absorbance', 'absorbance_au', 'absorbance [a.u.]', 'intensity']:
-                if absorbance_col in df.columns:
-                    try:
-                        ab_value = float(row[absorbance_col])
-                        break
-                    except (ValueError, TypeError) as e:
-                        if logger:
-                            logger.warning(f"Could not parse absorbance from {absorbance_col}: {row[absorbance_col]}, error: {e}")
-            
-            if wn_value is not None and ab_value is not None:
-                wavenumbers.append(wn_value)
-                absorbances.append(ab_value)
-        
-        # Convert to numpy arrays with units
-        if wavenumbers and absorbances:
-            spectrum.wavenumbers = np.array(wavenumbers)
-            spectrum.absorbances = np.array(absorbances)
-            spectrum.num_points = len(wavenumbers)
-        
-        archive.data = spectrum
-        
-        if logger:
-            logger.info(f"Successfully parsed spectrum with {len(wavenumbers)} data points")
+        try:
+            df = pd.read_csv(mainfile_path)
+
+            # Create ExperimentRun wrapper
+            experiment = ExperimentRun()
+            experiment.name = mainfile_path.stem
+
+            if logger:
+                logger.info(f"Reading CSV with columns: {list(df.columns)}")
+
+            # Parse wavenumbers and absorbances as arrays
+            wavenumbers = []
+            absorbances = []
+
+            for _, row in df.iterrows():
+                # Try different column name variants for wavenumber
+                wn_value = None
+                for wavenumber_col in ['wavenumber_cm1', 'wavenumber_cm-1', 'wavenumber [cm-1]', 'wavenumber', 'Wavenumber']:
+                    if wavenumber_col in df.columns:
+                        try:
+                            wn_value = float(row[wavenumber_col])
+                            break
+                        except (ValueError, TypeError) as e:
+                            if logger:
+                                logger.warning(f"Could not parse wavenumber from {wavenumber_col}: {row[wavenumber_col]}, error: {e}")
+
+                # Try different column name variants for absorbance
+                ab_value = None
+                for absorbance_col in ['absorbance', 'Absorbance', 'absorbance_au', 'absorbance [a.u.]', 'intensity']:
+                    if absorbance_col in df.columns:
+                        try:
+                            ab_value = float(row[absorbance_col])
+                            break
+                        except (ValueError, TypeError) as e:
+                            if logger:
+                                logger.warning(f"Could not parse absorbance from {absorbance_col}: {row[absorbance_col]}, error: {e}")
+
+                if wn_value is not None and ab_value is not None:
+                    wavenumbers.append(wn_value)
+                    absorbances.append(ab_value)
+
+            # Create spectrum data
+            spectrum = SpectrumData()
+            spectrum.name = mainfile_path.stem
+
+            if wavenumbers and absorbances:
+                spectrum.wavenumbers = np.array(wavenumbers)
+                spectrum.absorbances = np.array(absorbances)
+                spectrum.num_points = len(wavenumbers)
+
+            # Wrap spectrum in a step
+            step = ExperimentStep()
+            step.step = 1
+            step.spectrum = spectrum
+            experiment.steps = [step]
+
+            # Assign experiment (EntryData) to archive
+            archive.data = experiment
+
+            if logger:
+                logger.info(f"Successfully parsed spectrum with {len(wavenumbers)} data points")
+
+        except Exception as e:
+            if logger:
+                logger.error(f"Error in _parse_spectrum_simple: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+            # Create minimal experiment on error
+            archive.data = ExperimentRun()

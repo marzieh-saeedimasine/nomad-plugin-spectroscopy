@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
 
 from nomad.parsing import MatchingParser
-from nomad.units import ureg
 
 from nomad_plugin_spectroscopy.schema_packages.spectroscopy import (
     ChemicalInformation,
@@ -33,7 +32,7 @@ from nomad_plugin_spectroscopy.schema_packages.spectroscopy import (
 class ManifestParser(MatchingParser):
     """
     Parser for spectroscopy experiment manifest files.
-    
+
     Reads a manifest CSV that references spectrum files and metadata,
     creating a complete ExperimentRun structure.
     """
@@ -46,7 +45,7 @@ class ManifestParser(MatchingParser):
     ) -> None:
         """
         Parse experiment manifest and create ExperimentRun structure.
-        
+
         Args:
             mainfile: Path to the manifest CSV file
             archive: The entry archive to populate
@@ -54,29 +53,29 @@ class ManifestParser(MatchingParser):
         """
         try:
             mainfile_path = Path(mainfile)
-            
+
             # Extract run_id from filename (exp_XXXXXXXX_manifest.csv)
             filename_stem = mainfile_path.stem
             if filename_stem.endswith('_manifest'):
                 run_id = filename_stem.replace('_manifest', '')
             else:
                 run_id = filename_stem
-            
+
             # Read manifest CSV
             manifest_df = pd.read_csv(mainfile)
-            
+
             if logger:
                 logger.info(f"Parsing manifest for run: {run_id}, found {len(manifest_df)} rows")
-            
+
             # Create ExperimentRun
             experiment = ExperimentRun()
             experiment.name = run_id
-            
+
             # Try to read and parse metadata file
             metadata_file = mainfile_path.parent / f"{run_id}_metadata.csv"
             if metadata_file.exists():
                 experiment.metadata = self._parse_metadata(metadata_file, logger)
-            
+
             # Parse each step from manifest
             steps = []
             for idx, row in manifest_df.iterrows():
@@ -94,27 +93,29 @@ class ManifestParser(MatchingParser):
                         logger.error(f"Error parsing step {idx}: {str(e)}")
                         import traceback
                         logger.error(traceback.format_exc())
-            
+
             # Assign all steps to experiment as a list
             experiment.steps = steps
-            
+
             archive.data = experiment
-            
+
             if logger:
                 logger.info(f"Successfully parsed experiment with {len(experiment.steps)} steps")
-        
+
         except Exception as e:
             if logger:
                 logger.error(f"Error parsing manifest: {str(e)}")
                 import traceback
                 logger.error(traceback.format_exc())
+            # Always ensure archive.data is set to a valid EntryData
+            archive.data = ExperimentRun()
             # Create empty experiment
             archive.data = ExperimentRun()
-    
+
     def _parse_metadata(self, metadata_file: Path, logger) -> ExperimentMetadata:
         """
         Parse metadata CSV file.
-        
+
         Expected format:
             field,value
             run_id,20251205T151400Z
@@ -127,23 +128,23 @@ class ManifestParser(MatchingParser):
         try:
             metadata_df = pd.read_csv(metadata_file)
             metadata = ExperimentMetadata()
-            
+
             # Convert dataframe to dict
-            meta_dict = dict(zip(metadata_df['field'], metadata_df['value']))
-            
+            meta_dict = dict(zip(metadata_df['field'], metadata_df['value'], strict=False))
+
             metadata.run_id = meta_dict.get('run_id', '')
-            
+
             # Parse n_chemicals and n_mixtures
             try:
                 metadata.n_chemicals = int(meta_dict.get('n_chemicals', 0))
             except (ValueError, TypeError):
                 metadata.n_chemicals = 0
-            
+
             try:
                 metadata.n_mixtures = int(meta_dict.get('n_mixtures', 0))
             except (ValueError, TypeError):
                 metadata.n_mixtures = 0
-            
+
             # Parse chemical information
             chemicals = []
             for i in range(metadata.n_chemicals):
@@ -153,19 +154,19 @@ class ManifestParser(MatchingParser):
                     chem.index = i
                     chem.name = str(meta_dict[key])
                     chemicals.append(chem)
-            
+
             metadata.chemicals = chemicals
-            
+
             if logger:
                 logger.info(f"Parsed metadata: {metadata.run_id}, {metadata.n_chemicals} chemicals")
-            
+
             return metadata
-        
+
         except Exception as e:
             if logger:
                 logger.error(f"Error parsing metadata file: {str(e)}")
             return ExperimentMetadata()
-    
+
     def _parse_manifest_row(
         self, row, data_dir: Path, logger
     ) -> ExperimentStep:
@@ -173,22 +174,22 @@ class ManifestParser(MatchingParser):
         Parse a single row from the manifest CSV.
         """
         step = ExperimentStep()
-        
+
         # Parse step metadata
         try:
             step.step = int(row.get('step', -1))
         except (ValueError, TypeError):
             step.step = -1
-        
+
         step.timestamp = str(row.get('timestamp', ''))
-        
+
         # Parse boolean field
         is_repeat_val = row.get('is_repeat', 'False')
         step.is_repeat = str(is_repeat_val).lower() == 'true'
-        
+
         if logger:
             logger.info(f"Parsing step {step.step}, timestamp={step.timestamp}")
-        
+
         # Parse repeat_of if it exists
         try:
             repeat_of = row.get('repeat_of', '')
@@ -196,46 +197,46 @@ class ManifestParser(MatchingParser):
                 step.repeat_of = int(repeat_of)
         except (ValueError, TypeError):
             pass
-        
+
         # Parse volume quantities
         try:
             step.volume_ecdec_stock_ul = float(row.get('V_ECDEC_stock_ul', 0))
         except (ValueError, TypeError):
             step.volume_ecdec_stock_ul = 0.0
-        
+
         try:
             step.volume_lp40_stock_ul = float(row.get('V_LP40_stock_ul', 0))
         except (ValueError, TypeError):
             step.volume_lp40_stock_ul = 0.0
-        
+
         try:
             step.volume_pes_in_lp40_stock_ul = float(
                 row.get('V_PES_in_LP40_stock_ul', 0)
             )
         except (ValueError, TypeError):
             step.volume_pes_in_lp40_stock_ul = 0.0
-        
+
         # Parse weight quantities
         try:
             step.weight_lipf6_pure = float(row.get('wt_LiPF6_pure', 0))
         except (ValueError, TypeError):
             step.weight_lipf6_pure = 0.0
-        
+
         try:
             step.weight_ec_pure = float(row.get('wt_EC_pure', 0))
         except (ValueError, TypeError):
             step.weight_ec_pure = 0.0
-        
+
         try:
             step.weight_dec_pure = float(row.get('wt_DEC_pure', 0))
         except (ValueError, TypeError):
             step.weight_dec_pure = 0.0
-        
+
         try:
             step.weight_pes_pure = float(row.get('wt_PES_pure', 0))
         except (ValueError, TypeError):
             step.weight_pes_pure = 0.0
-        
+
         # Parse associated spectrum file
         spectrum_filename = row.get('scan_filename', '')
         if spectrum_filename:
@@ -258,9 +259,9 @@ class ManifestParser(MatchingParser):
         else:
             if logger:
                 logger.warning(f"No scan_filename in row")
-        
+
         return step
-    
+
     def _parse_spectrum(self, spectrum_file: Path, logger) -> SpectrumData:
         """
         Parse a spectrum CSV file and create SpectrumData section.
@@ -268,11 +269,11 @@ class ManifestParser(MatchingParser):
         try:
             spectrum_df = pd.read_csv(spectrum_file)
             spectrum = SpectrumData()
-            
+
             # Parse wavenumbers and absorbances as arrays
             wavenumbers = []
             absorbances = []
-            
+
             for _, row in spectrum_df.iterrows():
                 # Try different column name variants for wavenumber
                 wavenumber_found = False
@@ -294,7 +295,7 @@ class ManifestParser(MatchingParser):
                                     f"Could not parse wavenumber: {row[wavenumber_col]}"
                                 )
                         break
-                
+
                 # Try different column name variants for absorbance
                 absorbance_found = False
                 for absorbance_col in [
@@ -314,18 +315,18 @@ class ManifestParser(MatchingParser):
                                     f"Could not parse absorbance: {row[absorbance_col]}"
                                 )
                         break
-            
+
             # Convert to numpy arrays with proper units
             if wavenumbers and absorbances:
                 spectrum.wavenumbers = np.array(wavenumbers)
                 spectrum.absorbances = np.array(absorbances)
                 spectrum.num_points = len(wavenumbers)
-            
+
             if logger:
                 logger.info(f"Parsed spectrum with {len(wavenumbers)} data points")
-            
+
             return spectrum
-        
+
         except Exception as e:
             if logger:
                 logger.error(f"Error reading spectrum file: {str(e)}")
