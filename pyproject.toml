@@ -37,10 +37,10 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/FAIRmat-NFDI/nomad-plugin-spectroscopy"
-Documentation = "https://fairmat-nfdi.github.io/nomad-plugin-spectroscopy"
-"Bug Tracker" = "https://github.com/FAIRmat-NFDI/nomad-plugin-spectroscopy/issues"
-Changelog = "https://github.com/FAIRmat-NFDI/nomad-plugin-spectroscopy/releases"
+Repository = "https://github.com/marzieh-saeedimasine/nomad-plugin-spectroscopy"
+Documentation = "https://marzieh-saeedimasine.github.io/nomad-plugin-spectroscopy"
+"Bug Tracker" = "https://github.com/marzieh-saeedimasine/nomad-plugin-spectroscopy/issues"
+Changelog = "https://github.com/marzieh-saeedimasine/nomad-plugin-spectroscopy/releases"
 
 [project.optional-dependencies]
 dev = [
