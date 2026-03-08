@@ -1,0 +1,44 @@
+site_name: NOMAD Spectroscopy Plugin
+site_url: https://fairmat-nfdi.github.io/nomad-plugin-spectroscopy
+site_description: Documentation for the NOMAD Spectroscopy Plugin
+site_author: Marzieh Saeedimasine
+
+repo_url: https://github.com/FAIRmat-NFDI/nomad-plugin-spectroscopy
+repo_name: GitHub
+
+theme:
+  name: material
+  palette:
+    - scheme: light
+      primary: blue
+      accent: blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Usage: usage.md
+  - API Reference: api.md
+  - Contributing: contributing.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      use_pygments: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist
+  - admonition
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
