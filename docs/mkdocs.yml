@@ -3,6 +3,9 @@ site_url: https://fairmat-nfdi.github.io/nomad-plugin-spectroscopy
 site_description: Documentation for the NOMAD Spectroscopy Plugin
 site_author: Marzieh Saeedimasine
 
+docs_dir: .
+site_dir: site
+
 repo_url: https://github.com/FAIRmat-NFDI/nomad-plugin-spectroscopy
 repo_name: GitHub
 
